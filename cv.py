@@ -365,6 +365,16 @@ def index():
             filter: contrast(1.08) brightness(1.03) saturate(1.1);
             -webkit-filter: contrast(1.08) brightness(1.03) saturate(1.1);
         }}
+        #webglCanvas {{
+            display: none;
+            max-width: 100%;
+            height: auto;
+            border: 2px solid #28a745;
+            border-radius: 5px;
+            background: #000;
+        }}
+        .webgl-active #videoStream {{ display: none !important; }}
+        .webgl-active #webglCanvas {{ display: block !important; }}
         #videoStream.fullscreen {{ position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 9999; background: black; border: none; border-radius: 0; object-fit: contain; }}
         .performance {{ font-family: monospace; font-size: 12px; color: #666; margin-top: 10px; }}
         .status {{ padding: 10px; margin: 10px 0; border-radius: 5px; }}
@@ -422,6 +432,12 @@ def index():
                     <option value="cinema">🎬 Cinema-Grade</option>
                 </select>
             </label>
+            <label>Rendering: 
+                <select id="rendering">
+                    <option value="standard">🖼️ Standard (IMG)</option>
+                    <option value="webgl" selected>🚀 WebGL GPU-Accelerated</option>
+                </select>
+            </label>
             <br><br>
             <button onclick="scanEndpoints()">🔍 Scan Endpoints</button>
             <button onclick="startStream()">▶️ Start Stream</button>
@@ -440,6 +456,7 @@ def index():
         
         <div class="video-container">
             <img id="videoStream" src="" alt="DroidCam stream will appear here" style="display: none;">
+            <canvas id="webglCanvas" width="1280" height="720" style="display: none;"></canvas>
             <div id="placeholder" style="padding: 60px; background: #e9ecef; border: 2px dashed #6c757d; border-radius: 5px;">
                 📱 DroidCam stream will appear here
             </div>
@@ -450,6 +467,194 @@ def index():
     
     <script>
         let streamActive = false;
+        let webglRenderer = null;
+        let animationFrame = null;
+        
+        // WebGL Ultra-Smooth Renderer Class
+        class WebGLRenderer {{
+            constructor(canvas) {{
+                this.canvas = canvas;
+                this.gl = canvas.getContext('webgl2') || canvas.getContext('webgl');
+                this.texture = null;
+                this.program = null;
+                this.frameBuffer = [];
+                this.frameIndex = 0;
+                this.interpolationEnabled = true;
+                
+                if (!this.gl) {{
+                    console.warn('WebGL not supported, falling back to standard rendering');
+                    return null;
+                }}
+                
+                this.initShaders();
+                this.initBuffers();
+                console.log('WebGL renderer initialized with GPU acceleration');
+            }}
+            
+            initShaders() {{
+                const vertexShaderSource = `
+                    attribute vec2 a_position;
+                    attribute vec2 a_texCoord;
+                    varying vec2 v_texCoord;
+                    void main() {{
+                        gl_Position = vec4(a_position, 0.0, 1.0);
+                        v_texCoord = a_texCoord;
+                    }}
+                `;
+                
+                const fragmentShaderSource = `
+                    precision mediump float;
+                    uniform sampler2D u_texture;
+                    uniform sampler2D u_prevTexture;
+                    uniform float u_interpolation;
+                    uniform float u_contrast;
+                    uniform float u_brightness;
+                    uniform float u_saturation;
+                    varying vec2 v_texCoord;
+                    
+                    vec3 adjustColor(vec3 color, float contrast, float brightness, float saturation) {{
+                        // Apply brightness
+                        color += brightness - 1.0;
+                        
+                        // Apply contrast
+                        color = (color - 0.5) * contrast + 0.5;
+                        
+                        // Apply saturation
+                        float gray = dot(color, vec3(0.299, 0.587, 0.114));
+                        color = mix(vec3(gray), color, saturation);
+                        
+                        return clamp(color, 0.0, 1.0);
+                    }}
+                    
+                    void main() {{
+                        vec4 currentFrame = texture2D(u_texture, v_texCoord);
+                        vec4 prevFrame = texture2D(u_prevTexture, v_texCoord);
+                        
+                        // Frame interpolation for ultra-smooth playback
+                        vec4 interpolated = mix(prevFrame, currentFrame, u_interpolation);
+                        
+                        // Enhanced color processing
+                        vec3 enhanced = adjustColor(interpolated.rgb, u_contrast, u_brightness, u_saturation);
+                        
+                        gl_FragColor = vec4(enhanced, interpolated.a);
+                    }}
+                `;
+                
+                const vertexShader = this.createShader(this.gl.VERTEX_SHADER, vertexShaderSource);
+                const fragmentShader = this.createShader(this.gl.FRAGMENT_SHADER, fragmentShaderSource);
+                
+                this.program = this.gl.createProgram();
+                this.gl.attachShader(this.program, vertexShader);
+                this.gl.attachShader(this.program, fragmentShader);
+                this.gl.linkProgram(this.program);
+                
+                if (!this.gl.getProgramParameter(this.program, this.gl.LINK_STATUS)) {{
+                    console.error('Shader program failed to link:', this.gl.getProgramInfoLog(this.program));
+                }}
+            }}
+            
+            createShader(type, source) {{
+                const shader = this.gl.createShader(type);
+                this.gl.shaderSource(shader, source);
+                this.gl.compileShader(shader);
+                
+                if (!this.gl.getShaderParameter(shader, this.gl.COMPILE_STATUS)) {{
+                    console.error('Shader compilation error:', this.gl.getShaderInfoLog(shader));
+                    this.gl.deleteShader(shader);
+                    return null;
+                }}
+                
+                return shader;
+            }}
+            
+            initBuffers() {{
+                const positions = new Float32Array([
+                    -1, -1,  0, 1,
+                     1, -1,  1, 1,
+                    -1,  1,  0, 0,
+                     1,  1,  1, 0
+                ]);
+                
+                this.buffer = this.gl.createBuffer();
+                this.gl.bindBuffer(this.gl.ARRAY_BUFFER, this.buffer);
+                this.gl.bufferData(this.gl.ARRAY_BUFFER, positions, this.gl.STATIC_DRAW);
+                
+                this.texture = this.gl.createTexture();
+                this.prevTexture = this.gl.createTexture();
+            }}
+            
+            renderFrame(imageElement) {{
+                if (!this.gl || !this.program) return;
+                
+                // Update canvas size to match image
+                if (imageElement.naturalWidth && imageElement.naturalHeight) {{
+                    this.canvas.width = imageElement.naturalWidth;
+                    this.canvas.height = imageElement.naturalHeight;
+                    this.gl.viewport(0, 0, this.canvas.width, this.canvas.height);
+                }}
+                
+                this.gl.useProgram(this.program);
+                
+                // Copy previous texture
+                this.gl.bindTexture(this.gl.TEXTURE_2D, this.prevTexture);
+                this.gl.copyTexImage2D(this.gl.TEXTURE_2D, 0, this.gl.RGBA, 0, 0, this.canvas.width, this.canvas.height, 0);
+                
+                // Upload new frame
+                this.gl.bindTexture(this.gl.TEXTURE_2D, this.texture);
+                this.gl.texImage2D(this.gl.TEXTURE_2D, 0, this.gl.RGBA, this.gl.RGBA, this.gl.UNSIGNED_BYTE, imageElement);
+                this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_WRAP_S, this.gl.CLAMP_TO_EDGE);
+                this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_WRAP_T, this.gl.CLAMP_TO_EDGE);
+                this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_MIN_FILTER, this.gl.LINEAR);
+                this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_MAG_FILTER, this.gl.LINEAR);
+                
+                // Set uniforms
+                const smoothing = document.getElementById('smoothing').value;
+                const smoothingParams = {{
+                    'basic': {{ contrast: 1.02, brightness: 1.01, saturation: 1.0, interpolation: 0.3 }},
+                    'enhanced': {{ contrast: 1.05, brightness: 1.02, saturation: 1.05, interpolation: 0.5 }},
+                    'ultra': {{ contrast: 1.08, brightness: 1.03, saturation: 1.1, interpolation: 0.7 }},
+                    'cinema': {{ contrast: 1.12, brightness: 1.04, saturation: 1.15, interpolation: 0.9 }}
+                }};
+                
+                const params = smoothingParams[smoothing] || smoothingParams['ultra'];
+                
+                this.gl.uniform1f(this.gl.getUniformLocation(this.program, 'u_contrast'), params.contrast);
+                this.gl.uniform1f(this.gl.getUniformLocation(this.program, 'u_brightness'), params.brightness);
+                this.gl.uniform1f(this.gl.getUniformLocation(this.program, 'u_saturation'), params.saturation);
+                this.gl.uniform1f(this.gl.getUniformLocation(this.program, 'u_interpolation'), params.interpolation);
+                
+                // Bind textures
+                this.gl.activeTexture(this.gl.TEXTURE0);
+                this.gl.bindTexture(this.gl.TEXTURE_2D, this.texture);
+                this.gl.uniform1i(this.gl.getUniformLocation(this.program, 'u_texture'), 0);
+                
+                this.gl.activeTexture(this.gl.TEXTURE1);
+                this.gl.bindTexture(this.gl.TEXTURE_2D, this.prevTexture);
+                this.gl.uniform1i(this.gl.getUniformLocation(this.program, 'u_prevTexture'), 1);
+                
+                // Set up attributes
+                const positionLocation = this.gl.getAttribLocation(this.program, 'a_position');
+                const texCoordLocation = this.gl.getAttribLocation(this.program, 'a_texCoord');
+                
+                this.gl.bindBuffer(this.gl.ARRAY_BUFFER, this.buffer);
+                this.gl.enableVertexAttribArray(positionLocation);
+                this.gl.vertexAttribPointer(positionLocation, 2, this.gl.FLOAT, false, 16, 0);
+                this.gl.enableVertexAttribArray(texCoordLocation);
+                this.gl.vertexAttribPointer(texCoordLocation, 2, this.gl.FLOAT, false, 16, 8);
+                
+                // Draw
+                this.gl.drawArrays(this.gl.TRIANGLE_STRIP, 0, 4);
+            }}
+            
+            destroy() {{
+                if (this.gl) {{
+                    this.gl.deleteTexture(this.texture);
+                    this.gl.deleteTexture(this.prevTexture);
+                    this.gl.deleteBuffer(this.buffer);
+                    this.gl.deleteProgram(this.program);
+                }}
+            }}
+        }}
         
         function updateStatus(message, type = 'info') {{
             const status = document.getElementById('status');
@@ -511,25 +716,57 @@ def index():
             const quality = document.getElementById('quality').value;
             const fps = document.getElementById('fps').value;
             const buffer = document.getElementById('buffer').value;
+            const rendering = document.getElementById('rendering').value;
             const img = document.getElementById('videoStream');
+            const canvas = document.getElementById('webglCanvas');
             const placeholder = document.getElementById('placeholder');
             const perfDiv = document.getElementById('performance');
             
             const smoothing = document.getElementById('smoothing').value;
-            const streamUrl = `/stream?ip=${{ip}}&port=${{port}}&quality=${{quality}}&fps=${{fps}}&buffer=${{buffer}}&smoothing=${{smoothing}}&t=${{Date.now()}}`;
+            const streamUrl = `/stream?ip=${{ip}}&port=${{port}}&quality=${{quality}}&fps=${{fps}}&buffer=${{buffer}}&smoothing=${{smoothing}}&t=${{Date.now()}}`;            
+            
+            // Initialize WebGL renderer if selected
+            if (rendering === 'webgl') {{
+                webglRenderer = new WebGLRenderer(canvas);
+                if (!webglRenderer || !webglRenderer.gl) {{
+                    updateStatus('WebGL not supported, falling back to standard rendering', 'error');
+                    document.getElementById('rendering').value = 'standard';
+                    rendering = 'standard';
+                    webglRenderer = null;
+                }}
+            }}
             
             img.onload = function() {{
                 placeholder.style.display = 'none';
-                img.style.display = 'block';
-                perfDiv.style.display = 'block';
-                streamActive = true;
                 
-                // Apply ultra-smooth CSS class based on smoothing level
-                if (smoothing === 'ultra' || smoothing === 'cinema') {{
-                    img.classList.add('ultra-smooth');
+                if (rendering === 'webgl' && webglRenderer) {{
+                    // WebGL GPU-accelerated rendering
+                    document.body.classList.add('webgl-active');
+                    canvas.style.display = 'block';
+                    
+                    function renderLoop() {{
+                        if (streamActive && webglRenderer) {{
+                            webglRenderer.renderFrame(img);
+                            animationFrame = requestAnimationFrame(renderLoop);
+                        }}
+                    }}
+                    renderLoop();
+                    
+                    updateStatus(`🚀 WebGL GPU Stream Active! Quality: ${{quality}}, FPS: ${{fps}}, Smoothing: ${{smoothing}}`, 'success');
+                }} else {{
+                    // Standard IMG rendering
+                    img.style.display = 'block';
+                    
+                    // Apply ultra-smooth CSS class based on smoothing level
+                    if (smoothing === 'ultra' || smoothing === 'cinema') {{
+                        img.classList.add('ultra-smooth');
+                    }}
+                    
+                    updateStatus(`📹 Stream Active! Quality: ${{quality}}, FPS: ${{fps}}, Smoothing: ${{smoothing}}`, 'success');
                 }}
                 
-                updateStatus(`Stream active! 📹 Quality: ${{quality}}, FPS: ${{fps}}, Smoothing: ${{smoothing}}`, 'success');
+                perfDiv.style.display = 'block';
+                streamActive = true;
                 startPerformanceMonitoring();
             }};
             
@@ -544,12 +781,27 @@ def index():
         
         function stopStream() {{
             const img = document.getElementById('videoStream');
+            const canvas = document.getElementById('webglCanvas');
             const placeholder = document.getElementById('placeholder');
             const perfDiv = document.getElementById('performance');
+            
+            // Stop WebGL rendering
+            if (animationFrame) {{
+                cancelAnimationFrame(animationFrame);
+                animationFrame = null;
+            }}
+            
+            if (webglRenderer) {{
+                webglRenderer.destroy();
+                webglRenderer = null;
+            }}
+            
+            document.body.classList.remove('webgl-active');
             
             img.src = '';
             img.style.display = 'none';
             img.classList.remove('fullscreen');
+            canvas.style.display = 'none';
             placeholder.style.display = 'block';
             perfDiv.style.display = 'none';
             streamActive = false;
@@ -559,18 +811,21 @@ def index():
         
         function toggleFullscreen() {{
             const img = document.getElementById('videoStream');
+            const canvas = document.getElementById('webglCanvas');
+            const activeElement = document.body.classList.contains('webgl-active') ? canvas : img;
+            
             if (!streamActive) {{
                 updateStatus('Start stream first before going fullscreen.', 'error');
                 return;
             }}
             
-            img.classList.toggle('fullscreen');
+            activeElement.classList.toggle('fullscreen');
             
             // Exit fullscreen with ESC key
-            if (img.classList.contains('fullscreen')) {{
+            if (activeElement.classList.contains('fullscreen')) {{
                 document.addEventListener('keydown', function(e) {{
                     if (e.key === 'Escape') {{
-                        img.classList.remove('fullscreen');
+                        activeElement.classList.remove('fullscreen');
                     }}
                 }});
             }}
