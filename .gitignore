@@ -1,0 +1,59 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Environments
+.env
+.venv/
+venv/
+env/
+ENV/
+
+# Distribution / packaging
+build/
+dist/
+.eggs/
+*.egg-info/
+*.egg
+
+# Unit test / coverage reports
+.pytest_cache/
+.coverage*
+htmlcov/
+.tox/
+.nox/
+
+# IDEs / Editors
+.idea/
+*.iml
+.vscode/
+*.code-workspace
+
+# OS / Misc
+.DS_Store
+Thumbs.db
+
+# Logs and runtime
+logs/
+*.log
+*.pid
+*.seed
+
+# Local data (keep source clean)
+2025-09-28 21-34-11.txt
+
+# Flask / runtime
+instance/
+.flaskenv
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Caches
+*.cache
+.cache/
+
+# Images / temp
+*.tmp
+*.temp
