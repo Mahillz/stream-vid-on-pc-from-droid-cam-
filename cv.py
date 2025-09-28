@@ -51,7 +51,7 @@ def stream_video():
     port = request.args.get("port", DEFAULT_PORT)
     quality = request.args.get("quality", "medium")  # low, medium, high, ultra
     fps = request.args.get("fps", "auto")  # auto, 15, 30, 60
-    buffer_size = int(request.args.get("buffer", "65536"))  # Streaming buffer size (default XL for ultra-smooth)
+    buffer_size = int(request.args.get("buffer", "32768"))  # Streaming buffer size (default Large for better FPS)
     smoothing = request.args.get("smoothing", "ultra")  # basic, enhanced, ultra, cinema
     
     # Quality-based endpoint selection optimized for AMD hardware
@@ -105,12 +105,12 @@ def stream_video():
                             # Ultra-smooth streaming variables
                             jitter_buffer = []
                             frame_timestamps = []
-                            # Ultra-smooth parameters based on smoothing level
+                            # Optimized parameters for better FPS performance
                             smoothing_params = {
-                                "basic": {"window": 5, "tolerance": 0.8, "max_buffer": 2, "micro_delay": 0.001},
-                                "enhanced": {"window": 8, "tolerance": 0.75, "max_buffer": 3, "micro_delay": 0.0005},
-                                "ultra": {"window": 10, "tolerance": 0.7, "max_buffer": 5, "micro_delay": 0.0003},
-                                "cinema": {"window": 15, "tolerance": 0.65, "max_buffer": 8, "micro_delay": 0.0001}
+                                "basic": {"window": 3, "tolerance": 0.9, "max_buffer": 1, "micro_delay": 0.0001},
+                                "enhanced": {"window": 4, "tolerance": 0.85, "max_buffer": 2, "micro_delay": 0.00005},
+                                "ultra": {"window": 5, "tolerance": 0.8, "max_buffer": 3, "micro_delay": 0.00001},
+                                "cinema": {"window": 6, "tolerance": 0.75, "max_buffer": 4, "micro_delay": 0.000005}
                             }
                             
                             smooth_config = smoothing_params.get(smoothing, smoothing_params["ultra"])
@@ -174,26 +174,19 @@ def stream_video():
                                         buffered_chunk, buffered_time, buffered_size = jitter_buffer.pop(0)
                                         yield buffered_chunk
                                         
-                                        # Micro-delay for ultra-smooth delivery (adaptive based on smoothing level)
-                                        size_factor = (buffered_size / 1000.0) * 0.0001
-                                        optimal_delay = base_micro_delay + size_factor
-                                        time.sleep(optimal_delay)
+                                        # Minimal delay only for very large frames
+                                        if buffered_size > 100:  # Only delay for large frames
+                                            time.sleep(base_micro_delay)
+                                        # Skip delay for smaller frames to maximize FPS
                                     
                                     # Send current frame with temporal smoothing
                                     yield chunk
                                     last_frame_time = current_time
                                     
-                                    # Additional smoothing delay based on frame complexity and smoothing level
-                                    complexity_multiplier = {
-                                        "basic": 1.0, "enhanced": 0.8, "ultra": 0.6, "cinema": 0.4
-                                    }.get(smoothing, 0.6)
-                                    
-                                    if chunk_size_kb > 50:  # Large frame
-                                        time.sleep(0.0008 * complexity_multiplier)
-                                    elif chunk_size_kb > 20:  # Medium frame
-                                        time.sleep(0.0003 * complexity_multiplier)
-                                    else:  # Small frame
-                                        time.sleep(0.0001 * complexity_multiplier)
+                                    # Minimal delay for maximum FPS - only for very large frames
+                                    if chunk_size_kb > 100:  # Only delay for very large frames
+                                        time.sleep(0.0001)  # Minimal delay
+                                    # Remove all other delays to maximize FPS
                                     
                                     # AMD Ryzen optimization: use multiple threads for processing
                                     if AMD_GPU_ENABLED and frame_count % 10 == 0:
@@ -211,16 +204,14 @@ def stream_video():
                                         avg_jitter = sum([max(intervals) - min(intervals) for intervals in [intervals[-5:]] if len(intervals) >= 2]) if len(intervals) >= 2 else 0
                                         logging.info(f"Stream stats: {frame_count} frames, {actual_fps:.1f}/{target_fps} FPS ({fps_efficiency:.1f}% efficiency), {gpu_status} mode, smoothing={smoothing}, jitter={avg_jitter:.4f}s, CPU: {cpu_percent:.1f}%, RAM: {memory_percent:.1f}%, quality={quality}")
                             
-                            # Send any remaining buffered frames with optimal timing
+                            # Send remaining frames quickly without delays
                             while frame_buffer:
                                 yield frame_buffer.pop(0)
-                                time.sleep(0.001)
                             
-                            # Send remaining jitter buffer frames
+                            # Send remaining jitter buffer frames quickly
                             while jitter_buffer:
                                 buffered_chunk, _, buffered_size = jitter_buffer.pop(0)
                                 yield buffered_chunk
-                                time.sleep(0.0005 + (buffered_size / 1000.0) * 0.0001)
                         except Exception as e:
                             logging.error(f"Stream error: {e}")
                     
@@ -399,16 +390,16 @@ def index():
             <br><br>
             <label>Quality: 
                 <select id="quality">
-                    <option value="low">📱 Low (320p, fast)</option>
-                    <option value="medium" selected>📺 Medium (480p, balanced)</option>
+                    <option value="low" selected>📱 Low (320p, fast)</option>
+                    <option value="medium">📺 Medium (480p, balanced)</option>
                     <option value="high">🎬 High (720p, quality)</option>
                     <option value="ultra">🎯 Ultra (1080p, max)</option>
                 </select>
             </label>
             <label>FPS: 
                 <select id="fps">
-                    <option value="auto" selected>🔄 Auto</option>
-                    <option value="15">⚡ 15 FPS (battery save)</option>
+                    <option value="15" selected>⚡ 15 FPS (optimized)</option>
+                    <option value="auto">🔄 Auto</option>
                     <option value="24">🎬 24 FPS (cinematic)</option>
                     <option value="30">🎥 30 FPS (standard)</option>
                     <option value="60">🚀 60 FPS (smooth)</option>
@@ -419,8 +410,8 @@ def index():
                     <option value="4096">⚡ XS (4KB, ultra-low latency)</option>
                     <option value="8192">💾 Small (8KB, low latency)</option>
                     <option value="16384">⚖️ Medium (16KB, balanced)</option>
-                    <option value="32768">🚄 Large (32KB, smooth)</option>
-                    <option value="65536" selected>🚀 XL (64KB, ultra-smooth)</option>
+                    <option value="32768" selected>🚄 Large (32KB, smooth)</option>
+                    <option value="65536">🚀 XL (64KB, ultra-smooth)</option>
                     <option value="131072">🎆 XXL (128KB, cinema-grade)</option>
                 </select>
             </label>
@@ -843,9 +834,9 @@ def index():
                 const quality = document.getElementById('quality').value;
                 const buffer = document.getElementById('buffer').value;
                 
-                const targetFps = document.getElementById('fps').value === 'auto' ? 24 : parseInt(document.getElementById('fps').value);
+                const targetFps = document.getElementById('fps').value === 'auto' ? 15 : parseInt(document.getElementById('fps').value);
                 const efficiency = ((parseFloat(fps) / targetFps) * 100).toFixed(1);
-                const smoothness = efficiency >= 95 ? '🟢 Smooth' : efficiency >= 80 ? '🟡 Good' : '🔴 Choppy';
+                const smoothness = efficiency >= 90 ? '🟢 Smooth' : efficiency >= 60 ? '🟡 Good' : efficiency >= 30 ? '🟠 Fair' : '🔴 Choppy';
                 
                 document.getElementById('perfStats').textContent = 
                     `FPS: ${{fps}}/${{targetFps}} (${{efficiency}}%) | ${{smoothness}} | Quality: ${{quality}} | Buffer: ${{(parseInt(buffer)/1024).toFixed(0)}}KB | Frames: ${{frameCount}}`;
