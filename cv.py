@@ -83,7 +83,7 @@ def stream_video():
             
             if r.status_code == 200:
                 ctype = r.headers.get("Content-Type", "")
-                logging.info(f"Success! Status={r.status_code}, Content-Type='{ctype}'")
+                logging.info(f"Success! Status={r.status_code}, Content-Type='{ctype}', Headers: {dict(r.headers)}")
                 
                 # Check if it's actually MJPEG
                 if "multipart" in ctype.lower() or "mjpeg" in ctype.lower():
@@ -214,6 +214,8 @@ def stream_video():
                                 yield buffered_chunk
                         except Exception as e:
                             logging.error(f"Stream error: {e}")
+                            import traceback
+                            logging.error(f"Full traceback: {traceback.format_exc()}")
                     
                     headers = {
                         "Content-Type": ctype,
@@ -242,6 +244,8 @@ def stream_video():
                 
         except Exception as e:
             logging.error(f"Failed {endpoint}: {e}")
+            import traceback
+            logging.error(f"Full traceback: {traceback.format_exc()}")
     
     return Response(f"No MJPEG stream found. Tried: {', '.join(endpoints)}", 
                    status=502, content_type="text/plain")
@@ -761,10 +765,21 @@ def index():
                 startPerformanceMonitoring();
             }};
             
-            img.onerror = function() {{
+            img.onerror = function(event) {{
+                console.error('Image load error:', event);
+                console.error('Stream URL:', img.src);
                 updateStatus('Stream failed to load. Check connection and try scanning first.', 'error');
                 stopStream();
             }};
+            
+            // Add timeout detection
+            setTimeout(() => {{
+                if (!streamActive) {{
+                    console.error('Stream timeout - no frames received in 10 seconds');
+                    updateStatus('Stream timeout - no frames received. Check DroidCam app and network.', 'error');
+                    stopStream();
+                }}
+            }}, 10000);
             
             updateStatus(`Connecting to stream... Quality: ${{quality}}, FPS: ${{fps}}`, 'info');
             img.src = streamUrl;
