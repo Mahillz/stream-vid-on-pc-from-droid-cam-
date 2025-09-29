@@ -8,6 +8,9 @@ from fastapi.responses import StreamingResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
 import uvicorn
 from datetime import datetime
+import cv2
+import numpy as np
+import os
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -269,7 +272,8 @@ async def index():
                 <div class="control-group">
                     <label>Resolution:</label>
                     <select id="resolution">
-                        <option value="auto" selected>Auto (Original)</option>
+                        <option value="auto">Auto (Original)</option>
+                        <option value="640x480" selected>480p (640x480)</option>
                         <option value="1920x1080">1080p (1920x1080)</option>
                         <option value="1280x720">720p (1280x720)</option>
                         <option value="854x480">480p (854x480)</option>
@@ -289,8 +293,8 @@ async def index():
                     <select id="fpsLimit">
                         <option value="">No Limit</option>
                         <option value="15">15 FPS</option>
-                        <option value="24">24 FPS</option>
-                        <option value="30" selected>30 FPS</option>
+                        <option value="24" selected>24 FPS</option>
+                        <option value="30">30 FPS</option>
                         <option value="60">60 FPS</option>
                     </select>
 
@@ -487,91 +491,134 @@ async def stream_video(
         resolution: str = Query("auto"),
         quality: str = Query("high")
 ):
-    """Direct proxy stream from DroidCam with proper headers"""
+    """Proxy DroidCam MJPEG, enforce FPS, optional resizing and quality re-encode."""
 
-    # Use the exact endpoint that scan confirmed works
+    # Try to pass resolution and FPS parameters to DroidCam
     droidcam_url = f"http://{ip}:{port}/video"
+    params = []
+    
+    if resolution and resolution.lower() != "auto":
+        # Try common DroidCam URL parameters for resolution control
+        try:
+            w, h = resolution.lower().split("x")
+            params.extend([f"width={w}", f"height={h}", f"resolution={resolution}", f"size={resolution}"])
+        except Exception:
+            pass
+    
+    if fps_limit:
+        # Try common FPS parameter formats
+        params.extend([f"fps={int(fps_limit)}", f"framerate={int(fps_limit)}", f"rate={int(fps_limit)}"])
+    
+    if params:
+        droidcam_url += "?" + "&".join(params)
+        print(f"Trying DroidCam URL with parameters: {droidcam_url}")
+
+    # Parse target resolution
+    target_size = None
+    if resolution and resolution.lower() != "auto":
+        try:
+            w, h = resolution.lower().split("x")
+            target_size = (int(w), int(h))
+        except Exception:
+            target_size = None
+
+    # Map quality preset to JPEG quality
+    quality_map = {"high": 90, "medium": 75, "low": 60}
+    jpeg_quality = quality_map.get(quality, 85)
+
+    # FPS timing
+    frame_interval = (1.0 / float(fps_limit)) if fps_limit else 0.0
+    last_sent = 0.0
 
     async def generate():
+        nonlocal last_sent
         session = await streamer.get_session()
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+            'Accept': 'multipart/x-mixed-replace,*/*',
+            'Accept-Encoding': 'identity',
+            'Connection': 'keep-alive',
+            'Cache-Control': 'no-cache'
+        }
 
         try:
-            print(f"Direct proxy to: {droidcam_url}")
-
-            # Use specific headers that DroidCam expects
-            headers = {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-                'Accept': 'multipart/x-mixed-replace,*/*',
-                'Accept-Encoding': 'identity',
-                'Connection': 'keep-alive',
-                'Cache-Control': 'no-cache'
-            }
-
-            async with session.get(droidcam_url, headers=headers,
-                                   timeout=aiohttp.ClientTimeout(total=None)) as response:
-                print(f"DroidCam response status: {response.status}")
-                print(f"DroidCam content-type: {response.headers.get('content-type')}")
-                print(f"DroidCam headers: {dict(response.headers)}")
-
+            async with session.get(droidcam_url, headers=headers, timeout=aiohttp.ClientTimeout(total=None)) as response:
+                ct = response.headers.get('content-type', '').lower()
                 if response.status != 200:
-                    error_msg = f"DroidCam returned status {response.status}"
-                    print(error_msg)
-                    yield error_msg.encode()
+                    yield f"DroidCam status {response.status}".encode()
+                    return
+                if 'text/html' in ct:
+                    yield b"DroidCam returned HTML, not MJPEG. Check app permissions/state."
                     return
 
-                # Check if we're getting the right content type
-                content_type = response.headers.get('content-type', '').lower()
-                if 'text/html' in content_type:
-                    print("ERROR: DroidCam returned HTML instead of MJPEG stream")
-                    print("This usually means:")
-                    print("1. DroidCam app is not properly started")
-                    print("2. Camera permission not granted")
-                    print("3. Another app is using the camera")
+                buffer = bytearray()
+                SOI = b"\xff\xd8"  # Start Of Image
+                EOI = b"\xff\xd9"  # End Of Image
 
-                    error_html = await response.text()
-                    print(f"HTML response: {error_html[:200]}...")
-
-                    yield f"DroidCam Error: Received HTML instead of video stream. Check DroidCam app status.".encode()
-                    return
-
-                if 'multipart/x-mixed-replace' not in content_type and 'image/jpeg' not in content_type:
-                    print(f"WARNING: Unexpected content type: {content_type}")
-
-                # Stream the actual content
-                chunk_count = 0
-                bytes_streamed = 0
-
-                async for chunk in response.content.iter_chunked(8192):
+                async for chunk in response.content.iter_chunked(16384):
                     if not chunk:
-                        print("Empty chunk - stream ended")
                         break
+                    buffer.extend(chunk)
 
-                    chunk_count += 1
-                    bytes_streamed += len(chunk)
+                    # Extract full JPEG frames from buffer
+                    while True:
+                        start = buffer.find(SOI)
+                        end = buffer.find(EOI, start + 2)
+                        if start != -1 and end != -1:
+                            end += 2
+                            frame_bytes = bytes(buffer[start:end])
+                            del buffer[:end]
 
-                    # Apply FPS limiting if requested
-                    if fps_limit and chunk_count > 1:
-                        await asyncio.sleep(1.0 / fps_limit / 10)  # Rough FPS control
+                            # FPS control
+                            now = time.time()
+                            if frame_interval > 0:
+                                delta = now - last_sent
+                                if delta < frame_interval:
+                                    if drop_strategy == "latest":
+                                        # Drop this frame, continue to next available
+                                        continue
+                                    elif drop_strategy == "oldest":
+                                        # Wait until send time
+                                        await asyncio.sleep(frame_interval - delta)
+                                    else:
+                                        await asyncio.sleep(frame_interval - delta)
 
-                    if chunk_count % 50 == 0:  # Log every 50 chunks
-                        print(f"Streamed {chunk_count} chunks, {bytes_streamed} bytes")
+                            # Decode for optional resize/quality
+                            if target_size is not None or quality in quality_map:
+                                np_img = np.frombuffer(frame_bytes, dtype=np.uint8)
+                                img = cv2.imdecode(np_img, cv2.IMREAD_COLOR)
+                                if img is None:
+                                    # Fallback: forward original
+                                    pass
+                                else:
+                                    if target_size is not None:
+                                        img = cv2.resize(img, target_size, interpolation=cv2.INTER_AREA)
+                                    encode_param = [int(cv2.IMWRITE_JPEG_QUALITY), int(jpeg_quality)]
+                                    ok, enc = cv2.imencode('.jpg', img, encode_param)
+                                    if ok:
+                                        frame_bytes = enc.tobytes()
 
-                    yield chunk
+                            # Update timing after successful frame generation
+                            last_sent = time.time()
 
-                print(f"Stream completed: {chunk_count} chunks, {bytes_streamed} bytes total")
+                            # Emit our own multipart frame
+                            header = (
+                                b"--frame\r\n"
+                                b"Content-Type: image/jpeg\r\n"
+                                + f"Content-Length: {len(frame_bytes)}\r\n\r\n".encode('ascii')
+                            )
+                            yield header + frame_bytes + b"\r\n"
+                        else:
+                            break
 
         except asyncio.CancelledError:
-            print("Stream cancelled by client")
             raise
         except Exception as e:
-            error_msg = f"Stream error: {str(e)}"
-            print(error_msg)
-            yield error_msg.encode()
+            yield f"Stream error: {e}".encode()
 
-    # Return the stream with DroidCam's exact content-type
     return StreamingResponse(
         generate(),
-        media_type="multipart/x-mixed-replace; boundary=--dcmjpeg",
+        media_type="multipart/x-mixed-replace; boundary=frame",
         headers={
             "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0",
             "Pragma": "no-cache",
@@ -590,7 +637,7 @@ if __name__ == "__main__":
     uvicorn.run(
         app,
         host="127.0.0.1",
-        port=8084,
+        port=int(os.getenv("PORT", "8084")),
         loop="uvloop" if hasattr(asyncio, "uvloop") else "asyncio",
         log_level="info"
     )

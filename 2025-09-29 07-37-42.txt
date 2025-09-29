@@ -1,0 +1,221 @@
+07:37:42.055: CPU Name: AMD Ryzen 5 7430U with Radeon Graphics         
+07:37:42.056: CPU Speed: 2296MHz
+07:37:42.056: Physical Cores: 6, Logical Cores: 12
+07:37:42.056: Physical Memory: 15772MB Total, 5609MB Free
+07:37:42.056: Windows Version: 10.0 Build 26100 (release: 2009; revision: 6584; 64-bit)
+07:37:42.056: Running as administrator: false
+07:37:42.056: Aero is Enabled (Aero is always on for windows 8 and above)
+07:37:42.056: Windows 10 Gaming Features:
+07:37:42.056: 	Game DVR: On
+07:37:42.058: Sec. Software Status:
+07:37:42.060: 	Microsoft Defender Antivirus: enabled (AV)
+07:37:42.061: 	Windows Firewall: enabled (FW)
+07:37:42.065: Current Date/Time: 2025-09-29, 07:37:42
+07:37:42.065: Browser Hardware Acceleration: true
+07:37:42.065: Portable mode: false
+07:37:42.866: DroidCam Client (OBS) 7.1.0 (64-bit, windows)
+07:37:42.870: ---------------------------------
+07:37:42.870: audio settings reset:
+07:37:42.870: 	samples per sec: 44100
+07:37:42.870: 	speakers:        2
+07:37:42.878: ---------------------------------
+07:37:42.878: Initializing D3D11...
+07:37:42.878: Available Video Adapters: 
+07:37:42.891: 	Adapter 0: AMD Radeon (TM) Graphics
+07:37:42.891: 	  Dedicated VRAM: 519634944
+07:37:42.891: 	  Shared VRAM:    3974461440
+07:37:42.891: 	  PCI ID:         1002:15e7
+07:37:42.891: 	  Driver Version: 31.0.21916.5001
+07:37:42.892: 	  output 0: pos={0, 0}, size={1920, 1080}, attached=true, refresh=60, name=
+07:37:42.898: Loading up D3D11 on adapter AMD Radeon (TM) Graphics (0)
+07:37:42.956: D3D11 loaded successfully, feature level used: b000
+07:37:42.956: DXGI increase maximum frame latency success
+07:37:43.765: ---------------------------------
+07:37:43.765: video settings reset:
+07:37:43.765: 	base resolution:   1280x720
+07:37:43.765: 	output resolution: 1280x720
+07:37:43.765: 	downscale filter:  Bilinear
+07:37:43.765: 	fps:               30/1
+07:37:43.765: 	format:            I420
+07:37:43.765: 	YUV mode:          709/Full
+07:37:43.765: NV12 texture support not available
+07:37:43.768: Audio monitoring device:
+07:37:43.768: 	name: Default
+07:37:43.768: 	id: default
+07:37:43.770: LoadLibrary failed for 'libobs-winrt': The specified module could not be found.
+07:37:43.770:  (126)
+07:37:43.779: ---------------------------------
+07:37:43.794: Skipping module '../../obs-plugins/64bit/chrome_elf.dll', not an OBS plugin
+07:37:43.826: [DroidCamOBS] Source: "dummy_droidcam_source" - 234
+07:37:43.827: [DroidCamOBS] trying 'adb'
+07:37:43.829: [DroidCamOBS] command not found: adb version
+07:37:43.829: [DroidCamOBS] trying '../../data/obs-plugins/droidcam-obs/adb/adb.exe'
+07:37:46.238: [DroidCamOBS] activated=0, deactivateWNS=1, is_showing=0, enable_audio=0
+07:37:46.238: [DroidCamOBS] video_format=avc video_resolution=640x480
+07:37:46.238: [DroidCamOBS] source_properties: activated=0, uhd_unlock=0
+07:37:46.239: droidcam-obs module loaded (win10.0.26100)
+07:37:46.255: Skipping module '../../obs-plugins/64bit/libcef.dll', not an OBS plugin
+07:37:46.330: Skipping module '../../obs-plugins/64bit/libEGL.dll', not an OBS plugin
+07:37:46.335: Skipping module '../../obs-plugins/64bit/libGLESv2.dll', not an OBS plugin
+07:37:46.363: [obs-browser]: Version 2.16.3
+07:37:46.363: [obs-browser]: CEF Version 75.1.16+g16a67c4+chromium-75.0.3770.100
+07:37:46.436: [noise suppress]: NVIDIA RTX denoiser disabled, redistributable not found
+07:37:46.457: ---------------------------------
+07:37:46.457:   Loaded Modules:
+07:37:46.457:     obs-x264.dll
+07:37:46.457:     obs-transitions.dll
+07:37:46.457:     obs-text.dll
+07:37:46.457:     obs-outputs.dll
+07:37:46.457:     obs-filters.dll
+07:37:46.457:     obs-ffmpeg.dll
+07:37:46.457:     obs-browser.dll
+07:37:46.457:     image-source.dll
+07:37:46.457:     droidcam-virtual-output.dll
+07:37:46.457:     droidcam-obs.dll
+07:37:46.457:     bongobs-cat.dll
+07:37:46.457: ---------------------------------
+07:37:46.459: ==== Startup complete ===============================================
+07:37:46.460: [DroidcamVirtualOut] output_create: 0000011A9D580CC0 r020
+07:37:46.460: [DroidcamVirtualOut] mapped  6221824 bytes @ 0000011A9DE70000 [video]
+07:37:46.460: [DroidcamVirtualOut] mapped     9216 bytes @ 0000011A9D3D0000 [audio]
+07:37:46.476: All scene data cleared
+07:37:46.476: ------------------------------------------------
+07:37:46.515: Source ID 'wasapi_output_capture' not found
+07:37:46.515: Failed to create source 'Desktop Audio'!
+07:37:46.515: [Loaded global audio device]: 'Desktop Audio'
+07:37:46.515: Source ID 'wasapi_output_capture' not found
+07:37:46.515: Failed to create source 'Desktop Audio 2'!
+07:37:46.515: [Loaded global audio device]: 'Desktop Audio 2'
+07:37:46.515: Source ID 'wasapi_input_capture' not found
+07:37:46.515: Failed to create source 'Mic/Aux'!
+07:37:46.516: [Loaded global audio device]: 'Mic/Aux'
+07:37:46.516: Source ID 'wasapi_input_capture' not found
+07:37:46.516: Failed to create source 'Mic/Aux 2'!
+07:37:46.516: [Loaded global audio device]: 'Mic/Aux 2'
+07:37:46.516: Source ID 'wasapi_input_capture' not found
+07:37:46.516: Failed to create source 'Mic/Aux 3'!
+07:37:46.516: [Loaded global audio device]: 'Mic/Aux 3'
+07:37:46.516: Source ID 'wasapi_input_capture' not found
+07:37:46.517: Failed to create source 'Mic/Aux 4'!
+07:37:46.517: [Loaded global audio device]: 'Mic/Aux 4'
+07:37:46.518: [DroidCamOBS] Source: "iphone" - 234
+07:37:46.518: [DroidCamOBS] trying 'adb'
+07:37:46.521: [DroidCamOBS] command not found: adb version
+07:37:46.521: [DroidCamOBS] trying '../../data/obs-plugins/droidcam-obs/adb/adb.exe'
+07:37:46.668: [DroidCamOBS] activated=1, deactivateWNS=1, is_showing=0, enable_audio=0
+07:37:46.668: [DroidCamOBS] video_format=avc video_resolution=640x480
+07:37:46.668: [DroidCamOBS] device_info.id=dev_id_wifi device_info.ip=192.168.8.253 device_info.port=4747 device_info.type=1
+07:37:46.669: [DroidCamOBS] video_thread start
+07:37:46.669: Switched to scene 'Scene'
+07:37:46.669: Starting virtualcam due to command line parameter
+07:37:46.669: [DroidCamOBS] video_decode_thread start
+07:37:46.669: ------------------------------------------------
+07:37:46.669: Loaded scenes:
+07:37:46.669: - scene 'Scene':
+07:37:46.669:     - source: 'iphone' (droidcam_obs)
+07:37:46.669: ------------------------------------------------
+07:37:46.670: [DroidCamOBS] audio_thread start
+07:37:46.685: Update Check lapse: -327144 secs
+07:37:46.914: [DroidCamOBS] using bindIP '(null)'
+07:37:46.915: DroidCam sources: count=1 visible=1 connected=1
+07:37:46.926: Service 'rtmp_common' not found
+07:37:46.926: ==== Virtual Camera Stop ===========================================
+07:37:48.737: [DroidCamOBS] read_frame: got config: 26
+07:37:48.782: [DroidCamOBS] use hw: 1
+07:37:59.221: Analytics: Failed: 'Could not resolve host: api.mixpanel.com'
+07:37:59.222: DroidCam_Connect: iphone
+07:37:59.332: OnActivate +++
+07:37:59.337: DroidCam_Update_Remote: iphone url=http://192.168.8.253:4747 // last_remote_url=about:blank
+07:37:59.338: DroidCam_Update_Remote: SET => http://192.168.8.253:4747
+07:37:59.394: Source Selected: iphone
+07:37:59.394: DroidCam_Update_Remote: iphone url=http://192.168.8.253:4747 // last_remote_url=http://192.168.8.253:4747
+07:37:59.394: DroidCam_Update_Remote: REFRESH http://192.168.8.253:4747
+07:38:29.136: [DroidCamOBS] read header recv returned 0
+07:38:31.136: DroidCam_Disconnect: 0000011A9D5E93A0
+07:38:31.166: DroidCam sources: count=1 visible=1 connected=0
+07:38:31.166: OnDeactivate ---
+07:38:50.458: [DroidCamOBS] read_frame: got config: 26
+07:38:50.698: [DroidCamOBS] use hw: 1
+07:38:50.698: DroidCam_Connect: iphone
+07:38:50.726: OnActivate +++
+07:38:50.731: DroidCam_Connect: source SELECTED => Update Remote
+07:38:50.731: DroidCam_Update_Remote: iphone url=http://192.168.8.253:4747 // last_remote_url=http://192.168.8.253:4747
+07:38:50.731: DroidCam_Update_Remote: REFRESH http://192.168.8.253:4747
+07:39:02.907: [DroidCamOBS] read header recv returned 0
+07:39:04.908: DroidCam_Disconnect: 0000011A9D5E93A0
+07:39:04.944: DroidCam sources: count=1 visible=1 connected=0
+07:39:04.944: OnDeactivate ---
+07:39:05.201: [DroidCamOBS] read header recv returned 0
+07:39:07.363: [DroidCamOBS] read header recv returned 0
+07:39:09.561: [DroidCamOBS] read header recv returned 0
+07:39:13.425: [DroidCamOBS] read_frame: got config: 26
+07:39:13.506: [DroidCamOBS] use hw: 1
+07:39:13.506: DroidCam_Connect: iphone
+07:39:13.506: Rate Limiting Notifications
+07:39:13.506: OnActivate +++
+07:39:13.511: DroidCam_Connect: source SELECTED => Update Remote
+07:39:13.511: DroidCam_Update_Remote: iphone url=http://192.168.8.253:4747 // last_remote_url=http://192.168.8.253:4747
+07:39:13.511: DroidCam_Update_Remote: REFRESH http://192.168.8.253:4747
+07:39:57.104: ---------------------------------
+07:39:57.104: video settings reset:
+07:39:57.104: 	base resolution:   640x480
+07:39:57.104: 	output resolution: 640x480
+07:39:57.104: 	downscale filter:  Bilinear
+07:39:57.104: 	fps:               24/1
+07:39:57.104: 	format:            I420
+07:39:57.104: 	YUV mode:          709/Full
+07:39:57.105: NV12 texture support not available
+07:39:57.109: LoadLibrary failed for 'libobs-winrt': The specified module could not be found.
+07:39:57.109:  (126)
+07:39:57.162: Settings changed (video)
+07:39:57.162: ------------------------------------------------
+07:39:58.732: Service 'rtmp_common' not found
+07:39:58.733: ==== Virtual Camera Stop ===========================================
+07:41:16.357: [DroidCamOBS] read header recv returned 0
+07:41:18.358: DroidCam_Disconnect: 0000011A9D5E93A0
+07:41:18.395: DroidCam sources: count=1 visible=1 connected=0
+07:41:18.395: OnDeactivate ---
+07:41:29.398: [DroidCamOBS] source_properties: activated=1, uhd_unlock=0
+07:41:30.830: [DroidCamOBS] deactivate
+07:41:37.723: [DroidCamOBS] source_properties: activated=0, uhd_unlock=0
+07:54:18.122: [DroidCamOBS] source_properties: activated=0, uhd_unlock=0
+07:54:23.227: [DroidCamOBS] target IP is '192.168.8.253'
+07:54:23.227: [DroidCamOBS] activated: id=dev_id_wifi type=1 ip=192.168.8.253 port=4747
+07:54:23.227: [DroidCamOBS] video_format=0/avc video_resolution=0/640x480
+07:54:25.396: [DroidCamOBS] read_frame: got config: 26
+07:54:25.761: [DroidCamOBS] use hw: 1
+07:54:25.761: DroidCam_Connect: iphone
+07:54:25.791: OnActivate +++
+07:54:25.797: DroidCam_Connect: source SELECTED => Update Remote
+07:54:25.797: DroidCam_Update_Remote: iphone url=http://192.168.8.253:4747 // last_remote_url=http://192.168.8.253:4747
+07:54:25.797: DroidCam_Update_Remote: REFRESH http://192.168.8.253:4747
+07:54:34.287: [DroidCamOBS] video_parms_changed: video_format=0/avc video_resolution=2/1280x720
+07:54:36.351: DroidCam_Disconnect: 0000011A9D5E93A0
+07:54:36.381: DroidCam sources: count=1 visible=1 connected=0
+07:54:36.381: OnDeactivate ---
+07:54:38.192: [DroidCamOBS] read_frame: got config: 26
+07:54:38.424: [DroidCamOBS] use hw: 1
+07:54:38.424: DroidCam_Connect: iphone
+07:54:38.424: Rate Limiting Notifications
+07:54:38.425: OnActivate +++
+07:54:38.430: DroidCam_Connect: source SELECTED => Update Remote
+07:54:38.430: DroidCam_Update_Remote: iphone url=http://192.168.8.253:4747 // last_remote_url=http://192.168.8.253:4747
+07:54:38.430: DroidCam_Update_Remote: REFRESH http://192.168.8.253:4747
+07:54:44.965: [DroidCamOBS] video_parms_changed: video_format=0/avc video_resolution=0/640x480
+07:54:47.467: DroidCam_Disconnect: 0000011A9D5E93A0
+07:54:47.498: DroidCam sources: count=1 visible=1 connected=0
+07:54:47.498: OnDeactivate ---
+07:54:49.253: [DroidCamOBS] read_frame: got config: 26
+07:54:49.395: [DroidCamOBS] use hw: 1
+07:54:49.396: DroidCam_Connect: iphone
+07:54:49.396: Rate Limiting Notifications
+07:54:49.396: OnActivate +++
+07:54:49.401: DroidCam_Connect: source SELECTED => Update Remote
+07:54:49.401: DroidCam_Update_Remote: iphone url=http://192.168.8.253:4747 // last_remote_url=http://192.168.8.253:4747
+07:54:49.401: DroidCam_Update_Remote: REFRESH http://192.168.8.253:4747
+07:54:56.015: [DroidCamOBS] deactivate
+07:54:56.058: DroidCam_Disconnect: 0000011A9D5E93A0
+07:54:56.058: Rate Limiting Notifications
+07:54:56.058: DroidCam sources: count=0 visible=0 connected=0
+07:54:56.058: OnDeactivate ---
+07:55:06.528: [DroidCamOBS] source_properties: activated=0, uhd_unlock=0
