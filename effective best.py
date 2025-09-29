@@ -33,22 +33,31 @@ class DroidCamStreamer:
 
     async def get_session(self):
         if self.session is None or self.session.closed:
-            # Optimized connection settings for better performance
-            timeout = aiohttp.ClientTimeout(total=30, connect=5)
+            # Connection stability optimized for DroidCam streaming
+            timeout = aiohttp.ClientTimeout(
+                total=None,  # No total timeout for streaming
+                connect=5,   # 5s to establish connection
+                sock_read=30  # 30s read timeout to handle network hiccups
+            )
             connector = aiohttp.TCPConnector(
-                limit=100,
-                limit_per_host=30,
+                limit=20,
+                limit_per_host=3,  # Limit concurrent connections to prevent overload
                 ttl_dns_cache=300,
                 use_dns_cache=True,
-                keepalive_timeout=30,
-                enable_cleanup_closed=True
+                keepalive_timeout=30,  # Shorter keepalive for mobile networks
+                enable_cleanup_closed=True,
+                force_close=False
             )
             self.session = aiohttp.ClientSession(
                 timeout=timeout,
                 connector=connector,
-                headers={'User-Agent': 'DroidCam-Optimized-Viewer/2.0'}
+                headers={
+                    'User-Agent': 'DroidCam-Optimized-Viewer/3.0',
+                    'Connection': 'keep-alive',
+                    'Cache-Control': 'no-cache'
+                }
             )
-            logger.info("🚀 Optimized session created with enhanced connection pooling")
+            logger.info("🚀 Ultra-optimized streaming session created")
         return self.session
 
     async def close_session(self):
@@ -513,16 +522,11 @@ async def stream_video(
         droidcam_url += "?" + "&".join(params)
         print(f"Trying DroidCam URL with parameters: {droidcam_url}")
 
-    # Parse target resolution
-    target_size = None
-    if resolution and resolution.lower() != "auto":
-        try:
-            w, h = resolution.lower().split("x")
-            target_size = (int(w), int(h))
-        except Exception:
-            target_size = None
-
-    # Map quality preset to JPEG quality
+    # Since DroidCam handles resolution natively via URL params, we only need
+    # server-side processing for quality adjustment when explicitly requested
+    needs_reencoding = quality != "high"  # Only re-encode for medium/low quality
+    
+    # Map quality preset to JPEG quality (only used if re-encoding)
     quality_map = {"high": 90, "medium": 75, "low": 60}
     jpeg_quality = quality_map.get(quality, 85)
 
@@ -542,23 +546,41 @@ async def stream_video(
         }
 
         try:
-            async with session.get(droidcam_url, headers=headers, timeout=aiohttp.ClientTimeout(total=None)) as response:
+            print(f"DEBUG: Connecting to DroidCam: {droidcam_url}")
+            async with session.get(droidcam_url, headers=headers) as response:
+                print(f"DEBUG: DroidCam Response: Status={response.status}, Content-Type={response.headers.get('content-type')}")
                 ct = response.headers.get('content-type', '').lower()
+                
                 if response.status != 200:
-                    yield f"DroidCam status {response.status}".encode()
+                    error_msg = f"ERROR: DroidCam returned status {response.status}"
+                    print(error_msg)
+                    yield error_msg.encode()
                     return
+                    
                 if 'text/html' in ct:
-                    yield b"DroidCam returned HTML, not MJPEG. Check app permissions/state."
+                    error_msg = "ERROR: DroidCam returned HTML, not MJPEG. Check app permissions/state."
+                    print(error_msg)
+                    yield error_msg.encode()
                     return
 
+                # Optimized buffering strategy
                 buffer = bytearray()
                 SOI = b"\xff\xd8"  # Start Of Image
                 EOI = b"\xff\xd9"  # End Of Image
-
-                async for chunk in response.content.iter_chunked(16384):
+                frame_count = 0
+                bytes_processed = 0
+                last_data_time = time.time()
+                
+                # Use smaller chunks for better stability
+                chunk_size = 8192
+                
+                async for chunk in response.content.iter_chunked(chunk_size):
                     if not chunk:
+                        print("DEBUG: Empty chunk received, connection ended")
                         break
+                        
                     buffer.extend(chunk)
+                    last_data_time = time.time()
 
                     # Extract full JPEG frames from buffer
                     while True:
@@ -575,33 +597,36 @@ async def stream_video(
                                 delta = now - last_sent
                                 if delta < frame_interval:
                                     if drop_strategy == "latest":
-                                        # Drop this frame, continue to next available
                                         continue
-                                    elif drop_strategy == "oldest":
-                                        # Wait until send time
-                                        await asyncio.sleep(frame_interval - delta)
                                     else:
                                         await asyncio.sleep(frame_interval - delta)
 
-                            # Decode for optional resize/quality
-                            if target_size is not None or quality in quality_map:
-                                np_img = np.frombuffer(frame_bytes, dtype=np.uint8)
-                                img = cv2.imdecode(np_img, cv2.IMREAD_COLOR)
-                                if img is None:
-                                    # Fallback: forward original
+                            # Only re-encode if quality adjustment is needed
+                            if needs_reencoding:
+                                try:
+                                    np_img = np.frombuffer(frame_bytes, dtype=np.uint8)
+                                    img = cv2.imdecode(np_img, cv2.IMREAD_COLOR)
+                                    if img is not None:
+                                        encode_param = [int(cv2.IMWRITE_JPEG_QUALITY), int(jpeg_quality)]
+                                        ok, enc = cv2.imencode('.jpg', img, encode_param)
+                                        if ok:
+                                            frame_bytes = enc.tobytes()
+                                except Exception:
                                     pass
-                                else:
-                                    if target_size is not None:
-                                        img = cv2.resize(img, target_size, interpolation=cv2.INTER_AREA)
-                                    encode_param = [int(cv2.IMWRITE_JPEG_QUALITY), int(jpeg_quality)]
-                                    ok, enc = cv2.imencode('.jpg', img, encode_param)
-                                    if ok:
-                                        frame_bytes = enc.tobytes()
 
-                            # Update timing after successful frame generation
+                            # Update timing and stats
                             last_sent = time.time()
+                            frame_count += 1
+                            bytes_processed += len(frame_bytes)
+                            
+                            # Performance monitoring every 100 frames
+                            if frame_count % 100 == 0:
+                                elapsed = time.time() - (last_sent - (frame_count * frame_interval if frame_interval else frame_count / 24))
+                                actual_fps = frame_count / elapsed if elapsed > 0 else 0
+                                bandwidth_mbps = (bytes_processed / 1024 / 1024) / elapsed if elapsed > 0 else 0
+                                print(f"PERFORMANCE: {frame_count} frames, {actual_fps:.1f} FPS, {bandwidth_mbps:.1f} MB/s")
 
-                            # Emit our own multipart frame
+                            # Emit multipart frame
                             header = (
                                 b"--frame\r\n"
                                 b"Content-Type: image/jpeg\r\n"
@@ -609,12 +634,19 @@ async def stream_video(
                             )
                             yield header + frame_bytes + b"\r\n"
                         else:
+                            # Check for stale connection
+                            if time.time() - last_data_time > 15:
+                                print("WARNING: No data for 15s, connection may be stale")
+                                return
                             break
 
         except asyncio.CancelledError:
+            print("DEBUG: Stream cancelled by client")
             raise
         except Exception as e:
-            yield f"Stream error: {e}".encode()
+            error_msg = f"ERROR: Stream error: {type(e).__name__}: {str(e)}"
+            print(error_msg)
+            yield error_msg.encode()
 
     return StreamingResponse(
         generate(),
